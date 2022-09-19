@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const sequelize = require("sequelize");
 const { Comment } = require("../../models");
+const withAuth = require("../../utils/auth");
 
 router.get("/", (req, res) => {
   Comment.findAll({
@@ -9,12 +10,12 @@ router.get("/", (req, res) => {
       "comment_text",
       "user_id",
       "post_id",
-    //   [
-    //     sequelize.literal(
-    //       "(SELECT(*) FROM comment_text WHERE post.id = comment.post_id)"
-    //     ),
-    //     "comment_text",
-    //   ],
+      [
+        sequelize.literal(
+          "(SELECT(*) FROM comment_text WHERE post.id = comment.post_id)"
+        ),
+        "comment_text",
+      ],
     ],
     order: [["post", "DESC"]],
   })
@@ -25,7 +26,7 @@ router.get("/", (req, res) => {
     });
 });
 
-router.post("/", (req, res) => {
+router.post("/", withAuth, (req, res) => {
   if (req.session) {
   Comment.create({
     comment_text: req.body.comment_text,
@@ -40,7 +41,7 @@ router.post("/", (req, res) => {
   }
 });
 
-router.delete("/:id", (req, res) => {
+router.delete("/:id", withAuth, (req, res) => {
   Comment.destroy({
     where: {
       id: req.params.id,

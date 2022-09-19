@@ -1,10 +1,14 @@
 const router = require("express").Router();
 const sequelize = require("../config/connection");
-const { Post, User, Comment, Vote } = require("../models");
+const { Post, User, Comment } = require("../models");
+const withAuth = require("../utils/auth");
 
-router.get("/", (req, res) => {
-  console.log(req.session);
+router.get("/", withAuth, (req, res) => {
   Post.findAll({
+    where: {
+      // use the ID from session
+      user_id: req.session.user_id,
+    },
     attributes: [
       "id",
       "post_url",
@@ -12,16 +16,16 @@ router.get("/", (req, res) => {
       "created_at",
       [
         sequelize.literal(
-          "(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id)"
+          '(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id)'
         ),
-        "vote_count",
+        'vote_count',
       ],
     ],
     include: [
       {
         model: Comment,
         attributes: ["id", "comment_text", "post_id", "user_id", "created_at"],
-        iniclude: {
+        include: {
           model: User,
           attributes: ["username"],
         },
@@ -33,12 +37,9 @@ router.get("/", (req, res) => {
     ],
   })
     .then((dbPostData) => {
-      // pass a single post object into the homepage template
+      // serialize data before passing to template
       const posts = dbPostData.map((post) => post.get({ plain: true }));
-      res.render("homepage.handlebars", {
-        posts,
-        loggedIn: req.session.loggedIn,
-      });
+      res.render("dashboard.handlebars", { posts, loggedIn: true });
     })
     .catch((err) => {
       console.log(err);
@@ -46,16 +47,7 @@ router.get("/", (req, res) => {
     });
 });
 
-router.get("/login", (req, res) => {
-  if (req.session.loggedIn) {
-    res.redirect("/");
-    return;
-  }
-
-  res.render("login.handlebars");
-});
-
-router.get("/post/:id", (req, res) => {
+router.get("/edit/:id", withAuth, (req, res) => {
   Post.findOne({
     where: {
       id: req.params.id,
@@ -67,9 +59,9 @@ router.get("/post/:id", (req, res) => {
       "created_at",
       [
         sequelize.literal(
-          "(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id)"
+          '(SELECT COUNT(*) FROM vote WHERE post.id = vote.post_id)'
         ),
-        "vote_count",
+        'vote_count',
       ],
     ],
     include: [
@@ -95,10 +87,7 @@ router.get("/post/:id", (req, res) => {
 
       const post = dbPostData.get({ plain: true });
 
-      res.render("single-post.handlebars", {
-        post,
-        loggedIn: req.session.loggedIn,
-      });
+      res.render("edit-post.handlebars", { post, loggedIn: true });
     })
     .catch((err) => {
       console.log(err);
